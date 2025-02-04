@@ -1,0 +1,205 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/zarf-dev/zarf/v0.46.0/zarf.schema.json
+kind: ZarfPackageConfig
+metadata:
+  name: k3s
+  version: "###ZARF_PKG_TMPL_K8S_VERSION###-###ZARF_PKG_TMPL_K3S_RELEASE###"
+  uncompressed: true
+components:
+  - name: install-core
+    required: true
+    only:
+      localOS: linux
+      cluster:
+        architecture: amd64
+    files:
+      - source: "###ZARF_PKG_TMPL_PROXY_URL###/k3s-io/k3s/releases/download/v###ZARF_PKG_TMPL_K8S_VERSION###+###ZARF_PKG_TMPL_K3S_RELEASE###/k3s"
+        shasum: "###ZARF_PKG_TMPL_K3S_SHASUM_AMD64###"
+        target: /usr/sbin/k3s
+        executable: true
+        # K3s magic provides these tools when symlinking
+        symlinks:
+          - /usr/sbin/kubectl
+          - /usr/sbin/ctr
+          - /usr/sbin/crictl
+      - source: ./files/zarf-clean-k3s.sh
+        target: /opt/zarf/zarf-clean-k3s.sh
+        executable: true
+    actions:
+      onDeploy:
+        before:
+          - cmd: |-
+              if [ "$EUID" -ne 0 ]
+                then echo "Please run as root"
+                exit 1
+              fi
+            description: check that we are running as root
+      onRemove:
+        before:
+          - cmd: /opt/zarf/zarf-clean-k3s.sh
+            description: Remove 'k3s' from the system
+          - cmd: rm /opt/zarf/zarf-clean-k3s.sh
+            description: Remove the cleanup script
+
+  - name: install-core
+    required: true
+    only:
+      localOS: linux
+      cluster:
+        architecture: arm64
+    files:
+      - source: "###ZARF_PKG_TMPL_PROXY_URL###/k3s-io/k3s/releases/download/v###ZARF_PKG_TMPL_K8S_VERSION###+###ZARF_PKG_TMPL_K3S_RELEASE###/k3s-arm64"
+        shasum: "###ZARF_PKG_TMPL_K3S_SHASUM_ARM64###"
+        target: /usr/sbin/k3s
+        executable: true
+        # K3s magic provides these tools when symlinking
+        symlinks:
+          - /usr/sbin/kubectl
+          - /usr/sbin/ctr
+          - /usr/sbin/crictl
+      - source: ./files/zarf-clean-k3s.sh
+        target: /opt/zarf/zarf-clean-k3s.sh
+        executable: true
+    actions:
+      onDeploy:
+        before:
+          - cmd: |-
+              if [ "$EUID" -ne 0 ]
+                then echo "Please run as root"
+                exit 1
+              fi
+            description: check that we are running as root
+      onRemove:
+        before:
+          - cmd: /opt/zarf/zarf-clean-k3s.sh
+            description: Remove 'k3s' from the system
+          - cmd: rm /opt/zarf/zarf-clean-k3s.sh
+            description: Remove the cleanup script
+
+  - name: images
+    required: true
+    only:
+      localOS: linux
+      cluster:
+        architecture: amd64
+    description: >
+      *** REQUIRES ROOT (not sudo) ***
+      Stages offline images for RKE2
+    files:
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-klipper-helm.tar
+        source: ./decompress/docker.io-rancher-klipper-helm.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-klipper-lb.tar
+        source: ./decompress/docker.io-rancher-klipper-lb.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-local-path-provisioner.tar
+        source: ./decompress/docker.io-rancher-local-path-provisioner.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-coredns-coredns.tar
+        source: ./decompress/docker.io-rancher-mirrored-coredns-coredns.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-library-busybox.tar
+        source: ./decompress/docker.io-rancher-mirrored-library-busybox.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-library-traefik.tar
+        source: ./decompress/docker.io-rancher-mirrored-library-traefik.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-metrics-server.tar
+        source: ./decompress/docker.io-rancher-mirrored-metrics-server.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-pause.tar
+        source: ./decompress/docker.io-rancher-mirrored-pause.tar
+    actions:
+      onCreate:
+        before:
+          - description: pull images
+            cmd: |-
+              mkdir -p ./decompress
+              curl -L -s ###ZARF_PKG_TMPL_PROXY_URL###/k3s-io/k3s/releases/download/v###ZARF_PKG_TMPL_K8S_VERSION###%2B###ZARF_PKG_TMPL_K3S_RELEASE###/k3s-images.txt -o ./decompress/images.txt
+
+              for img in `cat ./decompress/images.txt`; do
+                rm -rf ./decompress/extract
+                export TAR="$(echo $img | sed -E 's/\//-/g; s/:.+$//g').tar"
+                ./zarf --no-log-file tools registry pull $img ./decompress/$TAR --platform=linux/amd64 2>/dev/null
+                ./zarf --no-log-file tools archiver decompress ./decompress/$TAR ./decompress/extract/ 2>/dev/null
+                rm -rf ./decompress/$TAR
+                ./zarf --no-log-file tools yq -p=j -o=j -i ".[0].RepoTags[0] = \"index.$img\"" ./decompress/extract/manifest.json
+                ./zarf --no-log-file tools archiver compress ./decompress/extract/* ./decompress/$TAR 2>/dev/null
+              done
+        after:
+          - description: clean
+            cmd: |-
+              rm -rf ./decompress
+
+  - name: images
+    required: true
+    only:
+      localOS: linux
+      cluster:
+        architecture: arm64
+    description: >
+      *** REQUIRES ROOT (not sudo) ***
+      Stages offline images for RKE2
+    files:
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-klipper-helm.tar
+        source: ./decompress/docker.io-rancher-klipper-helm.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-klipper-lb.tar
+        source: ./decompress/docker.io-rancher-klipper-lb.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-local-path-provisioner.tar
+        source: ./decompress/docker.io-rancher-local-path-provisioner.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-coredns-coredns.tar
+        source: ./decompress/docker.io-rancher-mirrored-coredns-coredns.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-library-busybox.tar
+        source: ./decompress/docker.io-rancher-mirrored-library-busybox.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-library-traefik.tar
+        source: ./decompress/docker.io-rancher-mirrored-library-traefik.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-metrics-server.tar
+        source: ./decompress/docker.io-rancher-mirrored-metrics-server.tar
+      - target: /var/lib/rancher/k3s/agent/images/docker.io-rancher-mirrored-pause.tar
+        source: ./decompress/docker.io-rancher-mirrored-pause.tar
+    actions:
+      onCreate:
+        before:
+          - description: pull images
+            cmd: |-
+              mkdir -p ./decompress
+              curl -L -s ###ZARF_PKG_TMPL_PROXY_URL###/k3s-io/k3s/releases/download/v###ZARF_PKG_TMPL_K8S_VERSION###%2B###ZARF_PKG_TMPL_K3S_RELEASE###/k3s-images.txt -o ./decompress/images.txt
+
+              for img in `cat ./decompress/images.txt`; do
+                rm -rf ./decompress/extract
+                export TAR="$(echo $img | sed -E 's/\//-/g; s/:.+$//g').tar"
+                ./zarf --no-log-file tools registry pull $img ./decompress/$TAR --platform=linux/arm64 2>/dev/null
+                ./zarf --no-log-file tools archiver decompress ./decompress/$TAR ./decompress/extract/ 2>/dev/null
+                rm -rf ./decompress/$TAR
+                ./zarf --no-log-file tools yq -p=j -o=j -i ".[0].RepoTags[0] = \"index.$img\"" ./decompress/extract/manifest.json
+                ./zarf --no-log-file tools archiver compress ./decompress/extract/* ./decompress/$TAR 2>/dev/null
+              done
+        after:
+          - description: clean
+            cmd: |-
+              rm -rf ./decompress
+
+  - name: install-agent
+    files:
+      - source: files/k3s-agent.service
+        target: /etc/systemd/system/k3s-agent.service
+        symlinks:
+          - /etc/systemd/system/multi-user.target.wants/k3s-agent.service
+    actions:
+      onDeploy:
+        after:
+          - cmd: systemctl daemon-reload
+            description: Reload the system services
+      onRemove:
+        before:
+          - cmd: rm /etc/systemd/system/k3s-agent.service /etc/systemd/system/multi-user.target.wants/k3s-agent.service
+            description: Remove the systemd service
+
+  - name: install-server
+    files:
+      - source: files/k3s-server.service
+        target: /etc/systemd/system/k3s-server.service
+        symlinks:
+          - /etc/systemd/system/multi-user.target.wants/k3s-server.service
+    actions:
+      onDeploy:
+        after:
+          - cmd: systemctl daemon-reload
+            description: Reload the system services
+      onRemove:
+        before:
+          - cmd: rm /etc/systemd/system/k3s-server.service /etc/systemd/system/multi-user.target.wants/k3s-server.service
+            description: Remove the systemd service

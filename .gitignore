@@ -1,0 +1,12 @@
+# ignore zarf artifacts
+zarf-*.tar
+zarf-*.tar.zst
+zarf-sbom
+decompress
+*.tmp.*
+*.tgz
+
+# ignore nix config directories/files
+/result*
+.direnv
+.pre-commit-config.yaml
