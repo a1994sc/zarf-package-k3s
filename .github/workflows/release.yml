@@ -28,6 +28,5 @@ jobs:
 
       - name: Package Zarf package
         run: |
-          cd "$MOD_PATH"
           zarf package create --confirm . --architecture amd64 --output oci://ghcr.io/a1994sc/zarf
           zarf package create --confirm . --architecture arm64 --output oci://ghcr.io/a1994sc/zarf
