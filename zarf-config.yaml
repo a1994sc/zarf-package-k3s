@@ -1,8 +1,8 @@
 package:
   create:
     set:
-      k8s_version: "1.31.5"
+      k8s_version: "1.32.2"
       k3s_release: "k3s1"
-      k3s_shasum_amd64: "399b87b432ce55013fa81adad572a8e4ecf56e0df97369cf02d4b8a41f039091"
-      k3s_shasum_arm64: "b719566c43ab1379fe2a7ce477e02bc1c79ea106bdaa7223fa9f6e19a735b477"
+      k3s_shasum_amd64: "853fba419a18369dabfba093c33d1ef47388fcc205765e6ce22e8a4a4e810c98"
+      k3s_shasum_arm64: "79d3c5c67abe8d24c2e59ecb51f675ed1232ff43e810e0d661af34fa7a27c66a"
       proxy_url: "https://github.com"
