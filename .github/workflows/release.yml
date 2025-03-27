@@ -28,5 +28,5 @@ jobs:
 
       - name: Package Zarf package
         run: |
-          zarf package create --confirm . --architecture amd64 --flavor amd64 --output oci://ghcr.io/a1994sc/zarf
-          zarf package create --confirm . --architecture arm64 --flavor arm64 --output oci://ghcr.io/a1994sc/zarf
+          zarf package create --confirm . --architecture amd64 --output oci://ghcr.io/${{ github.repository_owner }}/zarf
+          zarf package create --confirm . --architecture arm64 --output oci://ghcr.io/${{ github.repository_owner }}/zarf
